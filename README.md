@@ -1,9 +1,10 @@
 # Bayesian meta-analysis with systematic error
 
-## code
+## R
 
 - `get_eumaeus_data.R` can be used to extract Eumaeus results to apply this method to (requires database key). Those data should be saved into the `data` directory (git-ignored). 
 - `approx-eumaeus.R` applies stan model described below to a set of Eumaeus results. 
+- `normal-sim.R` uses simulated data to test previous stan models (ie without the likelihoood approximations)
 
 ## stan
 
@@ -20,3 +21,5 @@
 - R packages
 
 ## documents
+
+## results
