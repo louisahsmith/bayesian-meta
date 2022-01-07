@@ -72,7 +72,8 @@ empirical_calibration_function <- function(i, positive_control_outcomes, all_dat
   
   bind_cols(bind_rows(res), bind_rows(models)) %>% 
     select(-meanSlope, -sdSlope) %>% 
-    mutate(site = sites)
+    mutate(M = factor(sites, labels = levels(factor(NCs_all$databaseId))),
+           outcome = outcome)
 }
   
 plan(multisession)

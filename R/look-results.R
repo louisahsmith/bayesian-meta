@@ -6,11 +6,9 @@ all_res <- read_rds(here::here("results", "res_eumaeus_CohortMethod_1_21184.rds"
 res <- all_res[-which(sapply(all_res, is.null))]
 res_t <- transpose(res)
 
-# res_t$theta_percentiles %>% 
-#   set_names(str_glue("{res_t$outcome_id}_{res_t$effect_size}")) %>% 
-#   bind_rows(.id = "outcome") %>% 
-#   group_by(M) %>% 
-#   summarise(median(theta_percentile))
+all_res_emp <- read_rds(here::here("results", "emp_eumaeus_CohortMethod_1_21184.rds"))
+res_emp <- all_res_emp[-which(sapply(all_res_emp, is.null))]
+
 
 all_draws <-  res_t$posterior_draws %>% 
   set_names(str_glue("{res_t$outcome_id}_{res_t$effect_size}")) %>% 
@@ -23,15 +21,42 @@ betas <- select(all_draws, -theta)
 summ <- thetas %>% 
   group_by(M, outcome) %>%
   summarise_draws() %>% 
-  filter(variable == "theta")
+  filter(variable == "theta") %>% 
+  ungroup()
 
 hdis <- thetas %>% 
   group_by(M, outcome) %>%
-  mean_hdi(theta) 
+  median_hdci(theta) %>% 
+  ungroup()
 
 theta_res <- full_join(summ, hdis, by = c("M", "outcome")) %>%
-  mutate(across(c(theta, .lower, .upper, mean, median, q5, q95), exp, .names = "exp_{.col}"))
+  left_join(bind_rows(res_emp), by = c("M", "outcome")) %>% 
+  left_join(distinct(thetas, outcome, M, effect_size), by = c("M", "outcome")) %>% 
+  mutate(across(c(theta, .lower, .upper, mean, median, q5, q95, logRr, logLb95Rr, logUb95Rr), exp, .names = "exp_{.col}"))
 
+theta_res %>% 
+  filter(M != "Overall") %>% 
+  select(M, outcome, effect_size, RR_B = exp_median, RR_E = exp_logRr, 
+         low_B = exp_.lower, hi_B = exp_.upper,
+         low_E = exp_logLb95Rr, hi_E = exp_logUb95Rr) %>% 
+  pivot_longer(c(ends_with("_B"), ends_with("_E")),
+               names_sep = "\\_",
+               names_to = c(".value", "method")) %>% 
+  mutate(method = fct_recode(method, "Bayesian meta-analysis" = "B", "Empirical calibration" = "E")) %>% 
+  group_by(M, effect_size) %>% 
+  mutate(o = row_number()) %>% 
+  ungroup() %>% 
+  ggplot() +
+  geom_point(aes(RR, factor(o), color = method), position = position_dodge()) +
+  geom_errorbarh(aes(xmin = low, xmax = hi, y = factor(o), color = method), position = position_dodge()) +
+  geom_vline(aes(xintercept = effect_size), linetype = "dashed") +
+  scale_x_log10() +
+  facet_grid(rows = vars(M), cols = vars(effect_size), scales = "free", space = "free") +
+  labs(y = NULL) +
+  theme(axis.ticks.y = element_blank(),
+        axis.text.y = element_blank(),
+        legend.position = "top")
+  
 
 ggplot(filter(thetas, M == "Overall"),
        aes(y = factor(outcome), x = exp(theta), fill = factor(effect_size))) +
@@ -72,3 +97,12 @@ ggplot(thetas,
   scale_x_log10() +
   theme(legend.position = "none") +
   labs(x = "exp(θ)", y = NULL)
+
+
+
+
+# res_t$theta_percentiles %>% 
+#   set_names(str_glue("{res_t$outcome_id}_{res_t$effect_size}")) %>% 
+#   bind_rows(.id = "outcome") %>% 
+#   group_by(M) %>% 
+#   summarise(median(theta_percentile))
