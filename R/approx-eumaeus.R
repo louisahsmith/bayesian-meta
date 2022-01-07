@@ -9,7 +9,7 @@ rstan_options(auto_write = TRUE)
 # and seem to be not on regular grids
 # eumaeus_CohortMethod_1_21184.rds has 39 positive controls with multiple sites
 # eumaeus_CohortMethod_1_21215.rds has 294 positive controls with multiple sites
-eumaeus_file <- "eumaeus_CohortMethod_1_21184.rds"
+eumaeus_file <- "eumaeus_CohortMethod_1_21215.rds"
 
 all_dat <- read_rds(here::here("data", eumaeus_file)) %>% 
   mutate(site = as.numeric(factor(databaseId))) %>% 
