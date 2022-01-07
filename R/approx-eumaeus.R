@@ -2,12 +2,14 @@ library(rstan)
 library(tidyverse)
 library(tidybayes)
 library(furrr)
+library(progressr)
 # options(mc.cores = parallel::detectCores()) # when running one at a time
 rstan_options(auto_write = TRUE)
 
 # not all have positive controls
 # eumaeus_CohortMethod_1_21184.rds has 39 positive controls with multiple sites
 # eumaeus_CohortMethod_1_21215.rds has 294 positive controls with multiple sites
+# eumaeus_HistoricalComparator_1_21215.rds has 258 positive controls with multiple sites
 eumaeus_file <- "eumaeus_HistoricalComparator_1_21215.rds"
 
 all_dat <- read_rds(here::here("data", eumaeus_file)) %>% 
@@ -152,8 +154,14 @@ sim_function <- function(i, positive_control_outcomes, all_dat,
 }
 
 plan(multisession)
-res <- future_map(1:nrow(positive_control_outcomes), sim_function, 
-                    positive_control_outcomes, all_dat, iter = 2000, chains = 3)
+with_progress({
+  p <- progressor(steps = nrow(positive_control_outcomes))
+  res <- future_map(1:nrow(positive_control_outcomes), ~{
+    r <- sim_function(.x, positive_control_outcomes, all_dat, iter = 2000, chains = 3)
+    p()
+    r
+  }, .options = furrr_options(seed = TRUE))
+})
 plan(sequential)
 
 write_rds(res, here::here("results", paste0("res_", eumaeus_file)))
