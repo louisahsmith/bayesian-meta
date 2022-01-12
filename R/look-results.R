@@ -2,11 +2,13 @@ library(tidyverse)
 library(tidybayes)
 theme_set(theme_tidybayes())
 
-all_res <- read_rds(here::here("results", "res_eumaeus_CohortMethod_1_21184.rds"))
+eumaeus_file <- "eumaeus_HistoricalComparator_1_21215.rds"
+
+all_res <- read_rds(here::here("results", paste0("res_", eumaeus_file)))
 res <- all_res[-which(sapply(all_res, is.null))]
 res_t <- transpose(res)
 
-all_res_emp <- read_rds(here::here("results", "emp_eumaeus_CohortMethod_1_21184.rds"))
+all_res_emp <- read_rds(here::here("results", paste0("emp_", eumaeus_file)))
 res_emp <- all_res_emp[-which(sapply(all_res_emp, is.null))]
 
 
@@ -34,7 +36,7 @@ theta_res <- full_join(summ, hdis, by = c("M", "outcome")) %>%
   left_join(distinct(thetas, outcome, M, effect_size), by = c("M", "outcome")) %>% 
   mutate(across(c(theta, .lower, .upper, mean, median, q5, q95, logRr, logLb95Rr, logUb95Rr), exp, .names = "exp_{.col}"))
 
-theta_res %>% 
+compare_res <- theta_res %>% 
   filter(M != "Overall") %>% 
   select(M, outcome, effect_size, RR_B = exp_median, RR_E = exp_logRr, 
          low_B = exp_.lower, hi_B = exp_.upper,
@@ -42,7 +44,24 @@ theta_res %>%
   pivot_longer(c(ends_with("_B"), ends_with("_E")),
                names_sep = "\\_",
                names_to = c(".value", "method")) %>% 
-  mutate(method = fct_recode(method, "Bayesian meta-analysis" = "B", "Empirical calibration" = "E")) %>% 
+  mutate(method = fct_recode(method, "Bayesian meta-analysis" = "B", 
+                             "Empirical calibration" = "E")) %>% 
+  rowwise() %>% 
+  mutate(in_int = between(effect_size, low, hi)) %>% 
+  ungroup()
+
+compare_res %>% 
+  group_by(M, method) %>% 
+  summarise(median_RR = median(RR),
+            in_int = mean(in_int),
+            int_width = median(log(hi) - log(low)))
+
+theta_res %>% 
+  filter(M == "Overall") %>% 
+  summarise(median(exp_theta))
+
+
+compare_res %>% 
   group_by(M, effect_size) %>% 
   mutate(o = row_number()) %>% 
   ungroup() %>% 
@@ -51,7 +70,7 @@ theta_res %>%
   geom_errorbarh(aes(xmin = low, xmax = hi, y = factor(o), color = method), position = position_dodge()) +
   geom_vline(aes(xintercept = effect_size), linetype = "dashed") +
   scale_x_log10() +
-  facet_grid(rows = vars(M), cols = vars(effect_size), scales = "free", space = "free") +
+  facet_grid(cols = vars(M), scales = "free", space = "free") +
   labs(y = NULL) +
   theme(axis.ticks.y = element_blank(),
         axis.text.y = element_blank(),

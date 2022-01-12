@@ -17,8 +17,9 @@ all_dat <- read_rds(here::here("data", eumaeus_file)) %>%
   arrange(site)
 
 # these are all the unique positive controls
+# only do those of size 2 (highly correlated with others)
 positive_control_outcomes <- all_dat %>% 
-  filter(!is.na(effectSize), !is.na(seLogRr)) %>% 
+  filter(effectSize == 2, !is.na(seLogRr)) %>% 
   select(outcomeId, negativeControlId, effectSize) %>% 
   distinct()
 

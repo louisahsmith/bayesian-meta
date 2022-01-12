@@ -7,7 +7,7 @@ library(progressr)
 # eumaeus_CohortMethod_1_21184.rds has 39 positive controls with multiple sites
 # eumaeus_CohortMethod_1_21215.rds has 294 positive controls with multiple sites
 # eumaeus_HistoricalComparator_1_21215.rds has 258 positive controls with multiple sites
-eumaeus_file <- "eumaeus_CohortMethod_1_21184.rds"
+eumaeus_file <- "eumaeus_HistoricalComparator_1_21215.rds"
 
 all_dat <- read_rds(here::here("data", eumaeus_file)) %>% 
   mutate(site = as.numeric(factor(databaseId))) %>% 
@@ -15,7 +15,7 @@ all_dat <- read_rds(here::here("data", eumaeus_file)) %>%
 
 # these are all the unique positive controls
 positive_control_outcomes <- all_dat %>% 
-  filter(!is.na(effectSize), !is.na(seLogRr)) %>% 
+  filter(effectSize == 2, !is.na(seLogRr)) %>% 
   select(outcomeId, negativeControlId, effectSize) %>% 
   distinct()
 
