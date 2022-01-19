@@ -2,7 +2,7 @@ library(rstan)
 library(tidyverse)
 library(tidybayes)
 library(furrr)
-library(progressr)
+# library(progressr)
 # options(mc.cores = parallel::detectCores()) # when running one at a time
 rstan_options(auto_write = TRUE)
 
@@ -12,15 +12,19 @@ all_dat <- read_rds(here::here("data", eumaeus_file)) %>%
   mutate(site = as.numeric(factor(databaseId))) %>% 
   arrange(site)
 
-# these are all the unique positive controls
-# only do those of size 2 (highly correlated with others)
+# outcomes to test (both positive and negative controls)
 positive_control_outcomes <- all_dat %>% 
-  filter(effectSize == 2, !is.na(seLogRr)) %>% 
+  mutate(effectSize = ifelse(is.na(effectSize), 1, effectSize),
+         negativeControlId = ifelse(is.na(negativeControlId), outcomeId, negativeControlId)) %>% 
   select(outcomeId, negativeControlId, effectSize) %>% 
   distinct()
 
-sim_function <- function(i, positive_control_outcomes, all_dat, 
-                         iter = 3000, chains = 1, refresh = 0,
+sim_function <- function(i, t, positive_control_outcomes, all_dat, 
+                         mean_prior_beta = 0, sd_prior_beta = 1,
+                         mean_prior_tau = .5, sd_prior_tau = 1,
+                         mean_prior_THETA = 0, sd_prior_THETA = 4,
+                         mean_prior_GAMMA = 0.5, sd_prior_GAMMA = 2,
+                         iter = 2000, chains = 3, refresh = 0,
                          pars = c("THETA", "theta_i", "beta"), ...) {
   
   # choose a single positive control
@@ -33,14 +37,11 @@ sim_function <- function(i, positive_control_outcomes, all_dat,
   # and what the "truth" is
   effect_size <- positive_control_i$effectSize
   
-  # these are the estimates (profile likelihoods) from each of the sites
-  # that had that positive control
+  # these are the estimates from each of the sites
+  # that had that outcome
   ests <- all_dat %>% 
-    filter(outcomeId == outcome, !is.na(seLogRr)) %>% 
-    group_by(databaseId) %>% 
-    # just use last period
-    filter(periodId == max(periodId)) %>% 
-    ungroup() 
+    filter(outcomeId == outcome,
+           periodId == t)
   
   # skip if no estimates
   if (nrow(ests) == 0) return(NULL)
@@ -54,12 +55,9 @@ sim_function <- function(i, positive_control_outcomes, all_dat,
   # as well as any sites that don't have that positive control
   NCs <- all_dat %>% 
     filter(is.na(effectSize),
-           !is.na(seLogRr), 
            outcomeId != NCoutcome,
            site %in% sites) %>% 
-    group_by(databaseId, outcomeId) %>% 
-    # just use last period
-    filter(periodId == max(periodId)) %>% 
+    filter(periodId == t) %>% 
     ungroup() 
   
   dat <- list(J = nrow(NCs), # number of negative controls overall
@@ -77,14 +75,14 @@ sim_function <- function(i, positive_control_outcomes, all_dat,
               exposureDaysInterest = ests$exposureDays
               ) 
   
-  priors <- list(mean_prior_beta = rep(0, length(sites)),
-                 sd_prior_beta = rep(1, length(sites)),
-                 mean_prior_tau = rep(0.5, length(sites)),
-                 sd_prior_tau = rep(1, length(sites)),
-                 mean_prior_THETA = 0,
-                 sd_prior_THETA = 4,
-                 mean_prior_GAMMA = 0.5,
-                 sd_prior_GAMMA = 2)
+  priors <- list(mean_prior_beta = rep(mean_prior_beta, length(sites)),
+                 sd_prior_beta = rep(sd_prior_beta, length(sites)),
+                 mean_prior_tau = rep(mean_prior_tau, length(sites)),
+                 sd_prior_tau = rep(sd_prior_tau, length(sites)),
+                 mean_prior_THETA = mean_prior_THETA,
+                 sd_prior_THETA = sd_prior_THETA,
+                 mean_prior_GAMMA = mean_prior_GAMMA,
+                 sd_prior_GAMMA = sd_prior_GAMMA)
   
   mod <- stan(here::here("stan", "NCs-multiple-sites-priors-real-effect-poisson.stan"),
               data = c(dat, priors), iter = iter, chains = chains,
@@ -112,20 +110,29 @@ sim_function <- function(i, positive_control_outcomes, all_dat,
   to_return <- list(posterior_draws = thetas,
                     theta_percentiles = theta_percentiles,
                     effect_size = effect_size,
-                    outcome_id = outcome)
+                    outcome_id = outcome,
+                    period = t)
   
   to_return
 }
 
+its <- expand_grid(i = 1:nrow(positive_control_outcomes),
+                   t = unique(all_dat$periodId),
+                   mean_prior_beta = 0, sd_prior_beta = 1,
+                   mean_prior_tau = .5, sd_prior_tau = 1,
+                   mean_prior_THETA = 0, sd_prior_THETA = c(1, 4, 10),
+                   mean_prior_GAMMA = 0.5, sd_prior_GAMMA = 2,
+                   eumaeus_file = eumaeus_file)
+
 plan(multisession)
-with_progress({
-  p <- progressor(steps = nrow(positive_control_outcomes))
-  res <- future_map(1:nrow(positive_control_outcomes), ~{
-    r <- sim_function(.x, positive_control_outcomes, all_dat, iter = 2000, chains = 3)
-    p()
-    r
+future_pwalk(its,  function(i, t, eumaeus_file, mean_prior_beta, sd_prior_beta,
+                            mean_prior_tau, sd_prior_tau,
+                            mean_prior_THETA, sd_prior_THETA,
+                            mean_prior_GAMMA, sd_prior_GAMMA, ...){
+  write_rds(sim_function(i, t, positive_control_outcomes = positive_control_outcomes, all_dat = all_dat,
+                         mean_prior_beta, sd_prior_beta, mean_prior_tau, sd_prior_tau,
+                         mean_prior_THETA, sd_prior_THETA, mean_prior_GAMMA, sd_prior_GAMMA),
+            here::here("results", "HistoricalComparator", str_glue("{sd_prior_THETA}_{i}_{t}_{eumaeus_file}")))
   }, .options = furrr_options(seed = TRUE))
-})
 plan(sequential)
 
-write_rds(res, here::here("results", paste0("historical_", eumaeus_file)))
