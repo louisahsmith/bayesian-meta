@@ -19,13 +19,13 @@ positive_control_outcomes <- all_dat %>%
   select(outcomeId, negativeControlId, effectSize) %>% 
   distinct()
 
-sim_function <- function(i, t, positive_control_outcomes, all_dat, 
-                         mean_prior_beta = 0, sd_prior_beta = 1,
-                         mean_prior_tau = .5, sd_prior_tau = 1,
-                         mean_prior_THETA = 0, sd_prior_THETA = 4,
-                         mean_prior_GAMMA = 0.5, sd_prior_GAMMA = 2,
-                         iter = 2000, chains = 3, refresh = 0,
-                         pars = c("THETA", "theta_i", "beta"), ...) {
+fit_historical_meta <- function(i, t, positive_control_outcomes, all_dat, 
+                                mean_prior_beta = 0, sd_prior_beta = 1,
+                                mean_prior_tau = .5, sd_prior_tau = 1,
+                                mean_prior_THETA = 0, sd_prior_THETA = 4,
+                                mean_prior_GAMMA = 0.5, sd_prior_GAMMA = 2,
+                                iter = 2000, chains = 3, refresh = 0,
+                                pars = c("THETA", "theta_i", "beta"), ...) {
   
   # choose a single positive control
   positive_control_i <- positive_control_outcomes[i,]
@@ -46,7 +46,7 @@ sim_function <- function(i, t, positive_control_outcomes, all_dat,
   # skip if no estimates
   if (nrow(ests) == 0) return(NULL)
   sites <- unique(ests$site)
-
+  
   # we want to use only the negative controls that were not used to
   # generate the positive control of interest
   # so we exclude them from the negative controls
@@ -71,7 +71,7 @@ sim_function <- function(i, t, positive_control_outcomes, all_dat,
               counterfactualDaysInterest = as.array(ests$counterfactualDays),
               exposureOutcomesInterest = as.array(ests$exposureOutcomes), 
               exposureDaysInterest = as.array(ests$exposureDays)
-              )
+  )
   
   priors <- list(mean_prior_beta = as.array(rep(mean_prior_beta, length(sites))),
                  sd_prior_beta = as.array(rep(sd_prior_beta, length(sites))),
@@ -86,7 +86,7 @@ sim_function <- function(i, t, positive_control_outcomes, all_dat,
               data = c(dat, priors), iter = iter, chains = chains,
               pars = pars, refresh = refresh,
               control = list(adapt_delta = 0.9999, max_treedepth = 15))
-
+  
   # extract the site-specific thetas (true effect) and betas (mean bias)
   little_thetas <- mod %>% 
     spread_draws(theta_i[M], beta[M]) %>% 
@@ -114,23 +114,29 @@ sim_function <- function(i, t, positive_control_outcomes, all_dat,
   to_return
 }
 
+done <- tibble(files = list.files(here::here("results", "HistoricalComparator"))) %>% 
+  separate(files, into = c("sd_prior_THETA", "i", "t"), sep = "\\_", extra = "drop",
+           convert = TRUE)
+
 its <- expand_grid(i = 1:nrow(positive_control_outcomes),
                    t = unique(all_dat$periodId),
                    mean_prior_beta = 0, sd_prior_beta = 1,
                    mean_prior_tau = .5, sd_prior_tau = 1,
                    mean_prior_THETA = 0, sd_prior_THETA = c(1, 4, 10),
                    mean_prior_GAMMA = 0.5, sd_prior_GAMMA = 2,
-                   eumaeus_file = eumaeus_file)
+                   eumaeus_file = eumaeus_file) %>% 
+  anti_join(done, by = c("i", "t", "sd_prior_THETA"))
+
 
 plan(multisession)
 future_pwalk(its,  function(i, t, eumaeus_file, mean_prior_beta, sd_prior_beta,
                             mean_prior_tau, sd_prior_tau,
                             mean_prior_THETA, sd_prior_THETA,
                             mean_prior_GAMMA, sd_prior_GAMMA, ...){
-  write_rds(sim_function(i, t, positive_control_outcomes = positive_control_outcomes, all_dat = all_dat,
-                         mean_prior_beta, sd_prior_beta, mean_prior_tau, sd_prior_tau,
-                         mean_prior_THETA, sd_prior_THETA, mean_prior_GAMMA, sd_prior_GAMMA),
+  write_rds(fit_historical_meta(i, t, positive_control_outcomes = positive_control_outcomes, all_dat = all_dat,
+                                mean_prior_beta, sd_prior_beta, mean_prior_tau, sd_prior_tau,
+                                mean_prior_THETA, sd_prior_THETA, mean_prior_GAMMA, sd_prior_GAMMA),
             here::here("results", "HistoricalComparator", str_glue("{sd_prior_THETA}_{i}_{t}_{eumaeus_file}")))
-  }, .options = furrr_options(seed = TRUE))
+}, .options = furrr_options(seed = TRUE))
 plan(sequential)
 
