@@ -45,10 +45,8 @@ sim_function <- function(i, t, positive_control_outcomes, all_dat,
   
   # skip if no estimates
   if (nrow(ests) == 0) return(NULL)
-  # skip if only 1 site (can't really meta-analyze (stan code doesn't work because expects vector)... will do elsewhere)
   sites <- unique(ests$site)
-  if (length(sites) < 2) return(NULL)
-  
+
   # we want to use only the negative controls that were not used to
   # generate the positive control of interest
   # so we exclude them from the negative controls
