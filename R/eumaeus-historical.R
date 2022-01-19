@@ -69,16 +69,16 @@ sim_function <- function(i, t, positive_control_outcomes, all_dat,
               counterfactualDaysNCs = NCs$counterfactualDays,
               exposureOutcomesNCs = NCs$exposureOutcomes, 
               exposureDaysNCs = NCs$exposureDays,
-              counterfactualOutcomesInterest = ests$counterfactualOutcomes, 
-              counterfactualDaysInterest = ests$counterfactualDays,
-              exposureOutcomesInterest = ests$exposureOutcomes, 
-              exposureDaysInterest = ests$exposureDays
-              ) 
+              counterfactualOutcomesInterest = as.array(ests$counterfactualOutcomes), 
+              counterfactualDaysInterest = as.array(ests$counterfactualDays),
+              exposureOutcomesInterest = as.array(ests$exposureOutcomes), 
+              exposureDaysInterest = as.array(ests$exposureDays)
+              )
   
-  priors <- list(mean_prior_beta = rep(mean_prior_beta, length(sites)),
-                 sd_prior_beta = rep(sd_prior_beta, length(sites)),
-                 mean_prior_tau = rep(mean_prior_tau, length(sites)),
-                 sd_prior_tau = rep(sd_prior_tau, length(sites)),
+  priors <- list(mean_prior_beta = as.array(rep(mean_prior_beta, length(sites))),
+                 sd_prior_beta = as.array(rep(sd_prior_beta, length(sites))),
+                 mean_prior_tau = as.array(rep(mean_prior_tau, length(sites))),
+                 sd_prior_tau = as.array(rep(sd_prior_tau, length(sites))),
                  mean_prior_THETA = mean_prior_THETA,
                  sd_prior_THETA = sd_prior_THETA,
                  mean_prior_GAMMA = mean_prior_GAMMA,

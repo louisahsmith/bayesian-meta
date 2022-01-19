@@ -1,6 +1,6 @@
 functions {
 
-  real log_RR_lpdf(real x, int counterfactualOutcomes, real counterfactualDays, int exposureOutcomes, real exposureDays) {
+  real log_RR_lpdf(real x, real counterfactualOutcomes, real counterfactualDays, real exposureOutcomes, real exposureDays) {
     real mu0;
     real lprob;
     
@@ -19,16 +19,16 @@ data {
   int<lower=0> J;          // number of negative controls over all sites
   int<lower=0,upper=J> site[J]; // indicator of which site a given negative control belongs to
 
-  int<lower=0> counterfactualOutcomesNCs[J];
-  real<lower=0> counterfactualDaysNCs[J];
-  int<lower=0> exposureOutcomesNCs[J];
-  real<lower=0> exposureDaysNCs[J];
+  vector<lower=0>[J] counterfactualOutcomesNCs;
+  vector<lower=0>[J] counterfactualDaysNCs;
+  vector<lower=0>[J] exposureOutcomesNCs;
+  vector<lower=0>[J] exposureDaysNCs;
   
   int<lower=0> M;           // number of sites
-  int<lower=0> counterfactualOutcomesInterest[M];
-  real<lower=0> counterfactualDaysInterest[M];
-  int<lower=0> exposureOutcomesInterest[M];
-  real<lower=0> exposureDaysInterest[M];
+  vector<lower=0>[M] counterfactualOutcomesInterest;
+  vector<lower=0>[M] counterfactualDaysInterest;
+  vector<lower=0>[M] exposureOutcomesInterest;
+  vector<lower=0>[M] exposureDaysInterest;
 
   // parameters for priors
   // will be half-normal priors for the constrained positive params
@@ -36,10 +36,10 @@ data {
   real<lower=0> sd_prior_THETA;
   real<lower=0> mean_prior_GAMMA;
   real<lower=0> sd_prior_GAMMA;
-  real mean_prior_beta[M];
-  real<lower=0> sd_prior_beta[M];
-  real<lower=0> mean_prior_tau[M];
-  real<lower=0> sd_prior_tau[M];
+  vector[M] mean_prior_beta;
+  vector<lower=0>[M] sd_prior_beta;
+  vector<lower=0>[M] mean_prior_tau;
+  vector<lower=0>[M] sd_prior_tau;
 }
 parameters {
   real THETA;             // overall population true effect of interest
