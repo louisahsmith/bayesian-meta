@@ -122,7 +122,7 @@ its <- expand_grid(i = 1:nrow(positive_control_outcomes),
                    t = unique(all_dat$periodId),
                    mean_prior_beta = 0, sd_prior_beta = 1,
                    mean_prior_tau = .5, sd_prior_tau = 1,
-                   mean_prior_THETA = 0, sd_prior_THETA = c(1, 4, 10),
+                   mean_prior_THETA = 0, sd_prior_THETA = 4,
                    mean_prior_GAMMA = 0.5, sd_prior_GAMMA = 2,
                    eumaeus_file = eumaeus_file) %>% 
   anti_join(done, by = c("i", "t", "sd_prior_THETA"))

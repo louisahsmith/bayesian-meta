@@ -1,10 +1,9 @@
 library(DatabaseConnector)
 library(tidyverse)
 
-method_name <- 'SCCS' # CaseControl, CohortMethod, HistoricalComparator, SCCS
-analysis_ids <- c(1, 5, 9, 13, 14, 15) # 1:30 (depending on method)
+method_name <- 'HistoricalComparator' # CaseControl, CohortMethod, HistoricalComparator, SCCS
+analysis_ids <- 1:24 # 1:30 (depending on method)
 exposure_ids <- c(21184, 21185, 21214, 21215, 211981, 211982, 211983, 211831, 211832, 211833)
-
 Sys.setenv(DATABASECONNECTOR_JAR_FOLDER = keyring::key_get("eumaeusDriverPath"))
 
 eumaeusConnectionDetails <- createConnectionDetails(
@@ -45,7 +44,8 @@ database <- get_tbl("database")
 analysis <- get_tbl("analysis")
 exposure <- get_tbl("exposure")
 negative_control_outcome <- get_tbl("negative_control_outcome")
-positive_control_outcome <- get_tbl("positive_control_outcome")
+positive_control_outcome <- get_tbl("positive_control_outcome") %>% 
+  select(-exposureId)
 time_period <- get_tbl("time_period")
 
 for (analysis_id in analysis_ids) {
@@ -67,7 +67,7 @@ for (analysis_id in analysis_ids) {
       left_join(exposure, by = c("exposureId")) %>% 
       left_join(time_period, by = c("exposureId", "periodId"), suffix = c("Exposure", "Period")) %>% 
       left_join(negative_control_outcome, by = "outcomeId", suffix = c("", "Negative")) %>% 
-      left_join(positive_control_outcome, by = c("outcomeId", "exposureId"), suffix = c("", "Positive")) %>% 
+      left_join(positive_control_outcome, by = "outcomeId", suffix = c("", "Positive")) %>% 
       mutate(outcomeName = ifelse(is.na(outcomeName), outcomeNamePositive, outcomeName)) %>% 
       select(-outcomeNamePositive)
     
