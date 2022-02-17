@@ -3,24 +3,20 @@ library(EmpiricalCalibration)
 library(furrr)
 library(progressr)
 
-# not all have positive controls
-# eumaeus_CohortMethod_1_21184.rds has 39 positive controls with multiple sites
-# eumaeus_CohortMethod_1_21215.rds has 294 positive controls with multiple sites
-# eumaeus_HistoricalComparator_1_21215.rds has 258 positive controls with multiple sites
 eumaeus_file <- "eumaeus_HistoricalComparator_1_21215.rds"
 
 all_dat <- read_rds(here::here("data", eumaeus_file)) %>% 
   mutate(site = as.numeric(factor(databaseId))) %>% 
   arrange(site)
 
-# these are all the unique positive controls
+# outcomes to test (both positive and negative controls)
 positive_control_outcomes <- all_dat %>% 
-  filter(effectSize == 2, !is.na(seLogRr)) %>% 
+  mutate(effectSize = ifelse(is.na(effectSize), 1, effectSize),
+         negativeControlId = ifelse(is.na(negativeControlId), outcomeId, negativeControlId)) %>% 
   select(outcomeId, negativeControlId, effectSize) %>% 
   distinct()
 
-empirical_calibration_function <- function(i, positive_control_outcomes, all_dat, 
-                                           min_val = log(.1), max_val = log(10), ...) {
+empirical_calibration_function <- function(i, t, positive_control_outcomes, all_dat, ...) {
   
   # choose a single positive control
   positive_control_i <- positive_control_outcomes[i,]
@@ -32,55 +28,53 @@ empirical_calibration_function <- function(i, positive_control_outcomes, all_dat
   # and what the "truth" is
   effect_size <- positive_control_i$effectSize
   
-  # these are the estimates (profile likelihoods) from each of the sites
-  # that had that positive control
-  init_ests <- all_dat %>% 
-    filter(outcomeId == outcome, !is.na(seLogRr), 
-           # remove any without concave likelihood within bounds
-           between(logRr, min_val, max_val)) %>% 
-    group_by(databaseId) %>% 
-    # just use last period
-    filter(periodId == max(periodId)) %>% 
-    ungroup() 
+  # these are the estimates from each of the sites
+  # that had that outcome
+  ests <- all_dat %>% 
+    filter(outcomeId == outcome,
+           periodId == t)
   
   # skip if no estimates
-  if (nrow(init_ests) == 0) return(NULL)
-  # skip if only 1 site (can't really meta-analyze (stan code doesn't work because expects vector)... will do elsewhere)
-  sites <- unique(init_ests$site)
-  if (length(sites) < 2) return(NULL)
-
+  if (nrow(ests) == 0) return(NULL)
+  sites <- unique(ests$site)
+  
   # we want to use only the negative controls that were not used to
   # generate the positive control of interest
   # so we exclude them from the negative controls
   # as well as any sites that don't have that positive control
-  NCs_all <- all_dat %>% 
+  NCs <- all_dat %>% 
     filter(is.na(effectSize),
-           !is.na(seLogRr), 
            outcomeId != NCoutcome,
            site %in% sites) %>% 
-    group_by(databaseId, outcomeId) %>% 
-    # just use last period
-    filter(periodId == max(periodId)) %>% 
+    filter(periodId == t) %>% 
     ungroup() 
   
-  models <- NCs_all %>% 
+  models <- NCs %>% 
     group_by(site) %>% 
     group_map(~convertNullToErrorModel(fitMcmcNull(.x$logRr, .x$seLogRr)))
   
   res <- imap(models, 
-       ~calibrateConfidenceInterval(init_ests$logRr[.y], init_ests$seLogRr[.y], model = .x))
+       ~calibrateConfidenceInterval(ests$logRr[.y], ests$seLogRr[.y], model = .x))
   
   bind_cols(bind_rows(res), bind_rows(models)) %>% 
     select(-meanSlope, -sdSlope) %>% 
-    mutate(M = factor(sites, labels = levels(factor(NCs_all$databaseId))),
-           outcome = outcome)
+    mutate(M = factor(sites, labels = levels(factor(NCs$databaseId))),
+           outcome_id = outcome) %>% 
+    rename_with(~paste0(.x, "_neg_calibrated"), c(logRr, logLb95Rr, logUb95Rr, seLogRr)) %>% 
+    left_join(ests, by = c("M" = "databaseId", "outcome_id" = "outcomeId")) %>% 
+    select(-(databaseName:ll))
 }
   
+its <- expand_grid(i = 1:nrow(positive_control_outcomes),
+                   t = unique(all_dat$periodId))
+
 plan(multisession)
 with_progress({
   p <- progressor(steps = nrow(positive_control_outcomes))
-  res <- future_map(1:nrow(positive_control_outcomes), ~{
-    r <- empirical_calibration_function(.x, positive_control_outcomes, all_dat)
+  res <- future_pmap_dfr(its,  function(i, t, ...) {
+    r <- empirical_calibration_function(i, t, 
+                                        positive_control_outcomes = positive_control_outcomes, 
+                                        all_dat = all_dat, ...)
     p()
     r
   }, .options = furrr_options(seed = TRUE))
