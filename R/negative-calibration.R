@@ -1,18 +1,18 @@
 library(tidyverse)
+library(EmpiricalCalibration)
 library(furrr)
 library(progressr)
-source(here::here("R", "redo-calibration-functions.R"))
+
 eumaeus_file <- "eumaeus_HistoricalComparator_1_21215.rds"
 
 all_dat <- read_rds(here::here("data", eumaeus_file)) %>% 
-  mutate(site = as.numeric(factor(databaseId)),
-         effectSize = ifelse(is.na(effectSize), 1, effectSize),
-         logEffectSize = log(effectSize),
-         negativeControlId = ifelse(is.na(negativeControlId), outcomeId, negativeControlId)) %>% 
+  mutate(site = as.numeric(factor(databaseId))) %>% 
   arrange(site)
 
 # outcomes to test (both positive and negative controls)
 unique_control_outcomes <- all_dat %>% 
+  mutate(effectSize = ifelse(is.na(effectSize), 1, effectSize),
+         negativeControlId = ifelse(is.na(negativeControlId), outcomeId, negativeControlId)) %>% 
   select(outcomeId, negativeControlId, effectSize) %>% 
   distinct()
 
@@ -38,28 +38,29 @@ empirical_calibration_function <- function(i, t, unique_control_outcomes, all_da
   if (nrow(ests) == 0) return(NULL)
   sites <- unique(ests$site)
   
-  # we want to use only the controls that were not used to
-  # generate the control of interest
-  # so we exclude them from the controls
-  # as well as any sites that don't have that control
-  other_controls <- all_dat %>% 
-    filter(negativeControlId != NCoutcome,
+  # we want to use only the negative controls that were not used to
+  # generate the positive control of interest
+  # so we exclude them from the negative controls
+  # as well as any sites that don't have that positive control
+  NCs <- all_dat %>% 
+    filter(is.na(effectSize),
+           outcomeId != NCoutcome,
            site %in% sites) %>% 
     filter(periodId == t) %>% 
-    ungroup()
+    ungroup() 
   
-  models <- other_controls %>% 
+  models <- NCs %>% 
     group_by(site) %>% 
-    group_map(~mySystematicErrorModel(.x$logRr, .x$seLogRr, .x$logEffectSize))
+    group_map(~convertNullToErrorModel(fitMcmcNull(.x$logRr, .x$seLogRr)))
   
   res <- imap(models, 
-       ~mycalibrateConfidenceInterval(ests$logRr[.y], ests$seLogRr[.y], model = .x))
+       ~calibrateConfidenceInterval(ests$logRr[.y], ests$seLogRr[.y], model = .x))
   
   bind_cols(bind_rows(res), bind_rows(models)) %>% 
     select(-meanSlope, -sdSlope) %>% 
-    mutate(M = factor(sites, labels = levels(factor(other_controls$databaseId))),
+    mutate(M = factor(sites, labels = levels(factor(NCs$databaseId))),
            outcome_id = outcome) %>% 
-    rename_with(~paste0(.x, "_redo_calibrated"), c(logRr, logLb95Rr, logUb95Rr, seLogRr)) %>% 
+    rename_with(~paste0(.x, "_neg_calibrated"), c(logRr, logLb95Rr, logUb95Rr, seLogRr)) %>% 
     left_join(ests, by = c("M" = "databaseId", "outcome_id" = "outcomeId")) %>% 
     select(-(databaseName:ll))
 }
@@ -80,7 +81,7 @@ with_progress({
 })
 plan(sequential)
 
-write_rds(res, here::here("results", paste0("emp_", eumaeus_file)))
+write_rds(res, here::here("results", paste0("neg_", eumaeus_file)))
 
 
 
