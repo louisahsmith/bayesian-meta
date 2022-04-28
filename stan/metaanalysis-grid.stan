@@ -90,11 +90,14 @@ parameters {
   // true biases for the effects of interest and for negative controls
   vector[M] beta_0;
   vector[N] beta_j;
+  
+  // priors
+  real<lower=0> mu_prior_sd;
 }
 
 model {
   // priors for overall effect
-  mu ~ normal(0, 10);
+  mu ~ normal(0, mu_prior_sd);
   tau ~ normal(0, 5);
   
   // data-source specific bias priors
