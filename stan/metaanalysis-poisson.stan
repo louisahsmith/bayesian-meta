@@ -23,12 +23,30 @@ data {
   int x[N]; // x_ij
   real<lower=0> x_star[N]; // x*_ij
   real zeros[N]; //literally just 0s
+  
+  // prior distributions
+  real mu_mean;
+  real<lower=0> mu_sd;
+  real tau_mean;
+  real<lower=0> tau_sd;
+  real lambda_mean;
+  real<lower=0> lambda_sd;
+  real eta_mean;
+  real<lower=0> eta_sd;
+  // can have separate priors for the sd
+  // of the site-specific bias if you want
+  real gamma_mean[M];
+  real<lower=0> gamma_sd[M];
 }
 
 parameters {
   // parameters for the overall effect distribution
   real mu;
   real<lower=0> tau;
+  
+  // parameters for the overall bias distribution
+  real lambda;
+  real<lower=0> eta;
   
   //data source-specific parameters for the bias distribution
   real delta[M];
@@ -44,12 +62,16 @@ parameters {
 
 model {
   // priors for overall effect
-  mu ~ normal(0, 10);
-  tau ~ normal(0, 5);
+  mu ~ normal(mu_mean, mu_sd);
+  tau ~ normal(tau_mean, tau_sd);
   
-  // data-source specific bias priors
-  delta ~ normal(0, 10);
-  gamma ~ normal(0, 5);
+  // priors for bias distribution
+  lambda ~ normal(lambda_mean, lambda_sd);
+  eta ~ normal(eta_mean, eta_sd);
+  
+  // data-source specific bias distribution
+  delta ~ normal(lambda, eta);
+  gamma ~ normal(gamma_mean, gamma_sd);
   
   // negative controls
   for (j in 1:N){

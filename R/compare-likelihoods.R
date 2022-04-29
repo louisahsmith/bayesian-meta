@@ -6,7 +6,7 @@ theme_set(theme_tidybayes())
 rstan_options(auto_write = TRUE)
 options(mc.cores = parallel::detectCores())
 
-source(here::here("R", "get_ests_functions.R"))
+source(here::here("R", "get-ests-functions.R"))
 
 eumaeus_file <- "eumaeus_HistoricalComparator_1_21215.rds"
 
@@ -28,7 +28,7 @@ res_grid <- list()
 tic("normal")
 for (i in seq_along(outcomes)[1:5]) {
   res_normal[[i]] <- metaanalysis_normal(outcomes[i], all_dat = all_dat,
-                                         iter = 2000)
+                                         iter = 2500)
 }
 toc() # 95.474 sec elapsed
 
@@ -42,7 +42,7 @@ toc() # 138.646 sec elapsed
 tic("grid")
 for (i in seq_along(outcomes)[1:5]) {
   res_grid[[i]] <- metaanalysis_grid(outcomes[i], all_dat = all_dat,
-                                     iter = 3000)
+                                     iter = 3500)
 }
 toc() # 208.663 sec elapsed # 309.317 sec elapsed (3000 to get ESS similar)
 
@@ -63,6 +63,6 @@ summary_stats %>%
   group_by(model) %>%
   summarise(across(c(mean, median, rhat, ess_bulk, ess_tail), ~mean(.x)))
 
-all_plots[[1]][[1]]
-all_plots[[2]][[1]]
-all_plots[[3]][[1]]
+# all_plots[[1]][[1]]
+# all_plots[[2]][[1]]
+# all_plots[[3]][[1]]

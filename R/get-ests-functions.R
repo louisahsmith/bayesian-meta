@@ -1,7 +1,9 @@
-metaanalysis_grid <- function(outcome, all_dat, mu_prior_sd = 10,
-                              tau_prior_sd = 10, delta_prior_sd = 10,
-                              gamma_prior_sd = 10, min_val = log(.1), 
-                              max_val = log(10), n_vals = 1000, 
+metaanalysis_grid <- function(outcome, all_dat, mu_mean = 0, 
+                              mu_sd = 10, tau_mean = 0, 
+                              tau_sd = 10, lambda_mean = 0, 
+                              lambda_sd = 10, eta_mean = 0, 
+                              eta_sd = 10, gamma_mean = 0, gamma_sd = 10, 
+                              min_val = log(.1), max_val = log(10), n_vals = 1000, 
                               extreme_min_val = log(.01), extreme_max_val = log(100),
                               iter = 1000, chains = 4, adapt_delta = 0.9999, refresh = 0) {
   
@@ -66,6 +68,9 @@ metaanalysis_grid <- function(outcome, all_dat, mu_prior_sd = 10,
            databaseId %in% dat$databaseId) %>% 
     mutate(site = as.numeric(factor(site)))
   
+  if (length(gamma_mean) == 1) gamma_mean <- rep(gamma_mean, nrow(dat))
+  if (length(gamma_sd) == 1) gamma_sd <- rep(gamma_sd, nrow(dat))
+  
   stan_dat <- list(M = nrow(dat),
                    ll = matrix(ests$value, ncol = nrow(dat)), # log likelihood estimates
                    vals_evaled = vals_evaled, # values at which the log likelihood was estimated
@@ -77,7 +82,11 @@ metaanalysis_grid <- function(outcome, all_dat, mu_prior_sd = 10,
                    site = NCs$site,                  
                    x = NCs$logRr,
                    s_j = NCs$seLogRr,
-                   mu_prior_sd = mu_prior_sd)
+                   mu_mean = mu_mean, mu_sd = mu_sd, 
+                   tau_mean = tau_mean, tau_sd = tau_sd, 
+                   lambda_mean = lambda_mean, lambda_sd = lambda_sd, 
+                   eta_mean = eta_mean, eta_sd = eta_sd, 
+                   gamma_mean = as.array(gamma_mean), gamma_sd = as.array(gamma_sd))
   
   mod <- stan(here::here("stan", "metaanalysis-grid.stan"),
               data = stan_dat, iter = iter, chains = chains,
@@ -89,7 +98,12 @@ metaanalysis_grid <- function(outcome, all_dat, mu_prior_sd = 10,
 }
 
 
-metaanalysis_normal <- function(outcome, all_dat, iter = 2500, chains = 4,
+metaanalysis_normal <- function(outcome, all_dat, mu_mean = 0, 
+                                mu_sd = 10, tau_mean = 0, 
+                                tau_sd = 10, lambda_mean = 0, 
+                                lambda_sd = 10, eta_mean = 0, 
+                                eta_sd = 10, gamma_mean = 0, gamma_sd = 10, 
+                                iter = 2500, chains = 4,
                                 adapt_delta = 0.9999, refresh = 0) {
   dat <- all_dat %>% 
     filter(outcomeId == outcome)
@@ -100,13 +114,21 @@ metaanalysis_normal <- function(outcome, all_dat, iter = 2500, chains = 4,
            databaseId %in% dat$databaseId) %>% 
     mutate(site = as.numeric(factor(site)))
   
+  if (length(gamma_mean) == 1) gamma_mean <- rep(gamma_mean, nrow(dat))
+  if (length(gamma_sd) == 1) gamma_sd <- rep(gamma_sd, nrow(dat))
+  
   stan_dat <- list(M = nrow(dat),
                    y = as.array(dat$logRr),
                    s_0 = as.array(dat$seLogRr),
                    N = nrow(NCs),
                    site = NCs$site,                  
                    x = NCs$logRr,
-                   s_j = NCs$seLogRr)
+                   s_j = NCs$seLogRr,
+                   mu_mean = mu_mean, mu_sd = mu_sd, 
+                   tau_mean = tau_mean, tau_sd = tau_sd, 
+                   lambda_mean = lambda_mean, lambda_sd = lambda_sd, 
+                   eta_mean = eta_mean, eta_sd = eta_sd, 
+                   gamma_mean = as.array(gamma_mean), gamma_sd = as.array(gamma_sd))
   
   mod <- stan(here::here("stan", "metaanalysis-normal.stan"),
               data = stan_dat, iter = iter, chains = chains,
@@ -117,8 +139,13 @@ metaanalysis_normal <- function(outcome, all_dat, iter = 2500, chains = 4,
   
 }
 
-metaanalysis_poisson <- function(outcome, all_dat, iter = 2500, chains = 4,
-                                 adapt_delta = 0.9999, refresh = 0) {
+metaanalysis_poisson <- function(outcome, all_dat, mu_mean = 0, 
+                                mu_sd = 10, tau_mean = 0, 
+                                tau_sd = 10, lambda_mean = 0, 
+                                lambda_sd = 10, eta_mean = 0, 
+                                eta_sd = 10, gamma_mean = 0, gamma_sd = 10, 
+                                iter = 2500, chains = 4,
+                                adapt_delta = 0.9999, refresh = 0) {
   
   all_dat <- all_dat %>% 
     mutate(counterfactualExpected = exposureDays*(counterfactualOutcomes/counterfactualDays))
@@ -132,6 +159,9 @@ metaanalysis_poisson <- function(outcome, all_dat, iter = 2500, chains = 4,
            databaseId %in% dat$databaseId) %>% 
     mutate(site = as.numeric(factor(site)))
   
+  if (length(gamma_mean) == 1) gamma_mean <- rep(gamma_mean, nrow(dat))
+  if (length(gamma_sd) == 1) gamma_sd <- rep(gamma_sd, nrow(dat))
+  
   stan_dat <- list(M = nrow(dat),
                    y = as.array(dat$exposureOutcomes),
                    y_star = as.array(dat$counterfactualExpected),
@@ -139,7 +169,12 @@ metaanalysis_poisson <- function(outcome, all_dat, iter = 2500, chains = 4,
                    site = NCs$site,                  
                    x = NCs$exposureOutcomes,
                    x_star = NCs$counterfactualExpected, 
-                   zeros = rep(0, nrow(NCs)))
+                   zeros = rep(0, nrow(NCs)),
+                   mu_mean = mu_mean, mu_sd = mu_sd, 
+                   tau_mean = tau_mean, tau_sd = tau_sd, 
+                   lambda_mean = lambda_mean, lambda_sd = lambda_sd, 
+                   eta_mean = eta_mean, eta_sd = eta_sd, 
+                   gamma_mean = as.array(gamma_mean), gamma_sd = as.array(gamma_sd))
   
   mod <- stan(here::here("stan", "metaanalysis-poisson.stan"),
               data = stan_dat, iter = iter, chains = chains,
