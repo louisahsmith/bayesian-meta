@@ -518,14 +518,6 @@
       "Hash": "77bd60a6157420d4ffa93b27cf6a58b8",
       "Requirements": []
     },
-    "filelock": {
-      "Package": "filelock",
-      "Version": "1.0.2",
-      "Source": "Repository",
-      "Repository": "CRAN",
-      "Hash": "38ec653c2613bed60052ba3787bd8a2c",
-      "Requirements": []
-    },
     "forcats": {
       "Package": "forcats",
       "Version": "0.5.1",
@@ -908,23 +900,6 @@
         "viridisLite",
         "webshot",
         "xml2"
-      ]
-    },
-    "keyring": {
-      "Package": "keyring",
-      "Version": "1.3.0",
-      "Source": "Repository",
-      "Repository": "CRAN",
-      "Hash": "f97832aee679462739f7146fead53b11",
-      "Requirements": [
-        "R6",
-        "askpass",
-        "assertthat",
-        "filelock",
-        "openssl",
-        "rappdirs",
-        "sodium",
-        "yaml"
       ]
     },
     "knitr": {
@@ -1456,14 +1431,6 @@
         "R6",
         "stringr"
       ]
-    },
-    "sodium": {
-      "Package": "sodium",
-      "Version": "1.2.0",
-      "Source": "Repository",
-      "Repository": "CRAN",
-      "Hash": "07060494360a48fc8a2e282f0dc8f2cf",
-      "Requirements": []
     },
     "stringi": {
       "Package": "stringi",
