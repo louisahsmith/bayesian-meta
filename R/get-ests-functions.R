@@ -1,8 +1,9 @@
+
 metaanalysis_grid <- function(outcome, all_dat, mu_mean = 0, 
-                              mu_sd = 10, tau_mean = 0, 
-                              tau_sd = 10, lambda_mean = 0, 
-                              lambda_sd = 10, eta_mean = 0, 
-                              eta_sd = 10, gamma_mean = 0, gamma_sd = 10, 
+                              mu_sd = 5, tau_mean = 0, 
+                              tau_sd = 5, lambda_mean = 0, 
+                              lambda_sd = 5, eta_mean = 0, 
+                              eta_sd = 5, gamma_mean = 0, gamma_sd = 5, 
                               min_val = log(.1), max_val = log(10), n_vals = 1000, 
                               extreme_min_val = log(.01), extreme_max_val = log(100),
                               iter = 1000, chains = 4, adapt_delta = 0.9999, refresh = 0) {
@@ -99,10 +100,10 @@ metaanalysis_grid <- function(outcome, all_dat, mu_mean = 0,
 
 
 metaanalysis_normal <- function(outcome, all_dat, mu_mean = 0, 
-                                mu_sd = 10, tau_mean = 0, 
-                                tau_sd = 10, lambda_mean = 0, 
-                                lambda_sd = 10, eta_mean = 0, 
-                                eta_sd = 10, gamma_mean = 0, gamma_sd = 10, 
+                                mu_sd = 5, tau_mean = 0, 
+                                tau_sd = 5, lambda_mean = 0, 
+                                lambda_sd = 5, eta_mean = 0, 
+                                eta_sd = 5, gamma_mean = 0, gamma_sd = 5, 
                                 iter = 2500, chains = 4,
                                 adapt_delta = 0.9999, refresh = 0) {
   dat <- all_dat %>% 
@@ -140,12 +141,13 @@ metaanalysis_normal <- function(outcome, all_dat, mu_mean = 0,
 }
 
 metaanalysis_poisson <- function(outcome, all_dat, mu_mean = 0, 
-                                mu_sd = 10, tau_mean = 0, 
-                                tau_sd = 10, lambda_mean = 0, 
-                                lambda_sd = 10, eta_mean = 0, 
-                                eta_sd = 10, gamma_mean = 0, gamma_sd = 10, 
+                                mu_sd = 5, tau_mean = 0, 
+                                tau_sd = 5, lambda_mean = 0, 
+                                lambda_sd = 5, eta_mean = 0, 
+                                eta_sd = 5, gamma_mean = 0, gamma_sd = 5, 
                                 iter = 2500, chains = 4,
-                                adapt_delta = 0.9999, refresh = 0) {
+                                adapt_delta = 0.9999, refresh = 0,
+                                make_plot = TRUE) {
   
   all_dat <- all_dat %>% 
     mutate(counterfactualExpected = exposureDays*(counterfactualOutcomes/counterfactualDays))
@@ -181,11 +183,12 @@ metaanalysis_poisson <- function(outcome, all_dat, mu_mean = 0,
               control = list(adapt_delta = adapt_delta),
               refresh = refresh)
   
-  extract_mod(mod, outcome = outcome, labs = levels(factor(dat$databaseId)))
+  extract_mod(mod, outcome = outcome, labs = levels(factor(dat$databaseId)),
+              make_plot = make_plot)
   
 }
 
-extract_mod <- function(mod, outcome, labs) {
+extract_mod <- function(mod, outcome, labs, make_plot = TRUE) {
   draws <- mod %>% 
     gather_draws(theta_0[M], beta_0[M], delta[M], gamma[M], mu, tau) %>% 
     ungroup() %>% 
@@ -199,7 +202,10 @@ extract_mod <- function(mod, outcome, labs) {
     mutate(outcomeId = outcome,
            databaseId = factor(M, labels = labs))
   
-  plot <- bayesplot::mcmc_trace(mod, pars = c("mu", "tau"), regex_pars = "theta")
+  plot <- NULL
+  if (make_plot) {
+    plot <- bayesplot::mcmc_trace(mod, pars = c("mu", "tau"), regex_pars = "theta")
+  }
   
   lst(draws, summary_stats, plot)
 }
