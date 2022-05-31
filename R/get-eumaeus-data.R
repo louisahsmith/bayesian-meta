@@ -2,8 +2,8 @@ library(DatabaseConnector)
 library(tidyverse)
 
 method_name <- 'SCCS' # CaseControl, CohortMethod, HistoricalComparator, SCCS
-analysis_ids <- 2 # 1:30 (depending on method)
-exposure_ids <- 211981 # c(21184, 21185, 21214, 21215, 211981, 211982, 211983, 211831, 211832, 211833)
+analysis_ids <- 1 # 1:30 (depending on method)
+exposure_ids <- 21215 # c(21184, 21185, 21214, 21215, 211981, 211982, 211983, 211831, 211832, 211833)
 Sys.setenv(DATABASECONNECTOR_JAR_FOLDER = keyring::key_get("eumaeusDriverPath"))
 
 eumaeusConnectionDetails <- createConnectionDetails(
